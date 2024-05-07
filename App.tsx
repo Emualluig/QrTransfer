@@ -6,6 +6,8 @@ import { EncodingType, readAsStringAsync, documentDirectory, writeAsStringAsync 
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from 'expo-document-picker';
 import { BarCodeScanner, BarCodeScannerResult } from 'expo-barcode-scanner';
+import { QRCodeCanvas  } from 'qrcode.react';
+import QRCode from 'react-native-qrcode-svg';
 
 // Import buffer, may be removed in future
 global.Buffer = require("buffer").Buffer
@@ -33,7 +35,7 @@ type TransmitScreenSelectFileProps = NativeStackScreenProps<RootStackParamList, 
 function TransmitScreenSelectFile({ navigation }: TransmitScreenSelectFileProps) {
     const pickDocument = async () => {
         const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
-        if (result.type === "cancel") {
+        if (result.canceled) {
             console.log("Pick document canceled");
             return;
         }
@@ -42,16 +44,22 @@ function TransmitScreenSelectFile({ navigation }: TransmitScreenSelectFileProps)
             data: null,
             isWeb: false,
         };
-        if (result.file === undefined) {
+        const assets = result.assets;
+        if (assets.length !== 1) {
+            console.log("Can only pick 1 document.");
+            return;
+        }
+        const asset = result.assets.at(0)!;
+        if (result.output === undefined) {
             console.log("On mobile");
-            const content = await readAsStringAsync(result.uri, { encoding: EncodingType.Base64 });
+            const content = await readAsStringAsync(asset.uri, { encoding: EncodingType.Base64 });
 
-            dataobj.name = result.name;
+            dataobj.name = asset.name;
             dataobj.data = content;
         } else {
             console.log("On web");
-            dataobj.name = result.name;
-            const base64 = result.uri.split("base64,").at(1)!;
+            dataobj.name = asset.name;
+            const base64 = asset.uri.split("base64,").at(1)!;
             dataobj.data = base64;
             dataobj.isWeb = true;
         }
@@ -67,9 +75,6 @@ function TransmitScreenSelectFile({ navigation }: TransmitScreenSelectFileProps)
         </View>
     );
 }
-
-import { QRCodeCanvas  } from 'qrcode.react';
-import QRCode from 'react-native-qrcode-svg';
 
 type TransmitScreenDisplayingProps = NativeStackScreenProps<RootStackParamList, "TransmitScreenDisplaying">;
 function TransmitScreenDisplaying({ navigation, route }: TransmitScreenDisplayingProps) {
@@ -148,6 +153,7 @@ function ReceiveCompleteScreen({ navigation, route }: ReceiveCompleteScreenProps
         case "jpeg":
         case "jpg":
         case "webp":
+        case "gif":
             datatype = "image";
             break;
         default:
